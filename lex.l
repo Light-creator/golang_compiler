@@ -1,0 +1,59 @@
+%{
+
+#include "golang.h"
+#include "parser.tab.h"
+#include <string.h>
+
+%}
+
+%option noyywrap
+%option yylineno
+
+LETTER  [a-zA-Z_]
+DIGIT   [0-9]
+IDENT   {LETTER}({LETTER}|{DIGIT})*
+
+%%
+
+[ \t\r\n]+          ;   
+
+"package"           return KW_PACKAGE;
+"import"            return KW_IMPORT;
+"func"              return KW_FUNC;
+"return"            return KW_RETURN;
+"for"               return FOR;
+
+"("                 return LPAR;
+")"                 return RPAR;
+"{"                 return LCURL;
+"}"                 return RCURL;
+
+","                 return COLON;
+"."                 return DOT;
+";"                 return SEMICOLON;
+
+":="                return DEFINE;
+
+"+"                 return PLUS;
+"-"                 return MINUS;
+"*"                 return STAR;
+
+"<"                 return LESS;
+
+\"([^"]*)\"         return STRING;
+
+{DIGIT}+            {
+  yylval.num = atoi(yytext);
+  return NUMBER;
+}
+
+{IDENT} {
+    yylval.name = strdup(yytext);
+    return IDENT;
+}
+
+. {
+    /* игнор неизвестного */
+}
+
+%%
