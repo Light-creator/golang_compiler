@@ -22,6 +22,8 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 "func"              return KW_FUNC;
 "return"            return KW_RETURN;
 "for"               return FOR;
+"if"                return IF;
+"fmt.Println"       return PRINT;
 
 "("                 return LPAR;
 ")"                 return RPAR;
@@ -33,12 +35,14 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 ";"                 return SEMICOLON;
 
 ":="                return DEFINE;
+"=="                return EQ;
 
 "+"                 return PLUS;
 "-"                 return MINUS;
 "*"                 return STAR;
 
 "<"                 return LESS;
+">"                 return GREATER;
 
 \"([^"]*)\"         return STRING;
 

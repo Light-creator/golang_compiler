@@ -21,6 +21,9 @@ typedef struct var_t_ {
 typedef struct state_t_ {
   int loop_idx;
   int if_idx;
+
+  int loop_stack[BUFF_SZ];
+  int loop_stack_idx;
 } state_t;
 
 #endif

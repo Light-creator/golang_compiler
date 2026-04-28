@@ -13,7 +13,7 @@ typedef enum {
 } regs_t;
 
 typedef enum {
-  OP_CMP, OP_MOV, OP_JZ, OP_JMP, OP_INC
+  OP_CMP, OP_MOV, OP_JZ, OP_JL, OP_JG, OP_JLE, OP_JGE, OP_JMP, OP_INC, OP_OUT
 } opcode_t;
 
 typedef enum {
@@ -43,6 +43,7 @@ typedef struct vm_t_ {
   // flags
   int zero_flag;
   int neg_flag;
+  int carry;
 
   // pointers
   int ip;
@@ -111,6 +112,27 @@ int get_operand_value(operand_t* op) {
   }
 
   return 0;
+}
+
+void jmp_parse(char* label) {
+  vm.prog[vm.prog_sz].a.operand_type = LABEL; 
+  vm.prog[vm.prog_sz].a.val = -1;
+
+  label_t* label_ptr = find_label(label);
+  if(!label_ptr) {
+    // save jmp and save label
+    label_ptr = &state.labels[state.labels_sz];
+    int l = strlen(label);
+    memcpy(label_ptr->name, label, l);
+    state.labels[state.labels_sz].instr_idx = -1;
+    state.labels_sz++;
+
+    state.jmps[state.jmps_sz].label = label_ptr;
+    state.jmps[state.jmps_sz].instr = &vm.prog[vm.prog_sz];
+    state.jmps_sz++;
+  } else {
+    vm.prog[vm.prog_sz].a.val = label_ptr->instr_idx; 
+  }
 }
 
 void load_program(char* filename) {
@@ -189,50 +211,28 @@ void load_program(char* filename) {
         label_ptr->instr_idx = vm.prog_sz;
         state.labels_sz++;
       } else if(sscanf(line, "jmp %s:", label) == 1) {
-        // Point as OP_JMP label
         vm.prog[vm.prog_sz].opcode = OP_JMP; 
-        vm.prog[vm.prog_sz].a.operand_type = LABEL; 
-        vm.prog[vm.prog_sz].a.val = -1;
-
-        label_t* label_ptr = find_label(label);
-        if(!label_ptr) {
-          // save jmp and save label
-          label_ptr = &state.labels[state.labels_sz];
-          int l = strlen(label);
-          memcpy(label_ptr->name, label, l);
-          state.labels[state.labels_sz].instr_idx = -1;
-          state.labels_sz++;
-          
-          state.jmps[state.jmps_sz].label = label_ptr;
-          state.jmps[state.jmps_sz].instr = &vm.prog[vm.prog_sz];
-          state.jmps_sz++;
-        } else {
-          vm.prog[vm.prog_sz].a.val = label_ptr->instr_idx; 
-        }
-
+        jmp_parse(label);
         vm.prog_sz++;
       } else if(sscanf(line, "jz %s:", label) == 1) {
-        // Point as OP_JMP label
         vm.prog[vm.prog_sz].opcode = OP_JZ; 
-        vm.prog[vm.prog_sz].a.operand_type = LABEL; 
-        vm.prog[vm.prog_sz].a.val = -1;
-
-        label_t* label_ptr = find_label(label);
-        if(!label_ptr) {
-          // save jmp and save label
-          label_ptr = &state.labels[state.labels_sz];
-          int l = strlen(label);
-          memcpy(label_ptr->name, label, l);
-          state.labels[state.labels_sz].instr_idx = -1;
-          state.labels_sz++;
-          
-          state.jmps[state.jmps_sz].label = label_ptr;
-          state.jmps[state.jmps_sz].instr = &vm.prog[vm.prog_sz];
-          state.jmps_sz++;
-        } else {
-          vm.prog[vm.prog_sz].a.val = label_ptr->instr_idx; 
-        }
-
+        jmp_parse(label);
+        vm.prog_sz++;
+      }else if(sscanf(line, "jle %s:", label) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_JLE; 
+        jmp_parse(label);
+        vm.prog_sz++;
+      } else if(sscanf(line, "jge %s:", label) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_JGE; 
+        jmp_parse(label);
+        vm.prog_sz++;
+      } else if(sscanf(line, "jl %s:", label) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_JL; 
+        jmp_parse(label);
+        vm.prog_sz++;
+      } else if(sscanf(line, "jg %s:", label) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_JG; 
+        jmp_parse(label);
         vm.prog_sz++;
       } else if(sscanf(line, "inc r%d", &a) == 1) {
         vm.prog[vm.prog_sz].opcode = OP_INC; 
@@ -263,6 +263,13 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].b.operand_type = NUM; 
         vm.prog[vm.prog_sz].b.val = b; 
         vm.prog_sz++;
+      }  else if (sscanf(line, "out r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_OUT; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
       }
   }
 
@@ -287,6 +294,26 @@ void fetch_and_execute() {
     case OP_JZ:
       printf("jz: %d\n", instr->a.val);
       if(vm.zero_flag) vm.ip = instr->a.val;
+      else vm.ip++; 
+      break;
+    case OP_JL:
+      printf("jl: %d\n", instr->a.val);
+      if(vm.neg_flag && !vm.zero_flag) vm.ip = instr->a.val;
+      else vm.ip++; 
+      break;
+    case OP_JG:
+      printf("jg: %d\n", instr->a.val);
+      if(!vm.neg_flag && !vm.zero_flag) vm.ip = instr->a.val;
+      else vm.ip++; 
+      break;
+    case OP_JLE:
+      printf("jle: %d\n", instr->a.val);
+      if(vm.neg_flag || vm.zero_flag) vm.ip = instr->a.val;
+      else vm.ip++; 
+      break;
+    case OP_JGE:
+      printf("jge: %d\n", instr->a.val);
+      if(!vm.neg_flag || vm.zero_flag) vm.ip = instr->a.val;
       else vm.ip++; 
       break;
     case OP_INC:
@@ -318,6 +345,11 @@ void fetch_and_execute() {
       vm.ip++;
       break;
                  }
+    case OP_OUT:
+      printf("out r%d\n", instr->a.val);
+      printf("%d\n", vm.regs[instr->a.val]);
+      vm.ip++;
+      break;
     default: 
       vm.ip++;
       break;
