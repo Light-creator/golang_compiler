@@ -1,5 +1,7 @@
-./main
-./lex.yy.c
-./parser.tab.c
-./parser.tab.h
-./out.asm
+main
+lex.yy.c
+parser.tab.c
+parser.tab.h
+out.asm
+vm
+.vm

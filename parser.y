@@ -149,7 +149,7 @@ define: IDENT DEFINE NUMBER {
 
 for_cmp: IDENT LESS NUMBER {
         var_t* var = get_var($1);
-        fprintf(out_file, "start_loop_%d:\n", state.loop_idx); 
+        fprintf(out_file, ".start_loop_%d:\n", state.loop_idx); 
         
         fprintf(out_file, "mov r2, [%d]\n", var->idx);
         fprintf(out_file, "mov r3, %d\n", $3);
@@ -182,13 +182,14 @@ for_loop: FOR for_init SEMICOLON for_cmp SEMICOLON for_iter block {
         fprintf(out_file, "jmp start_loop_%d\n", state.loop_idx);
         
         // exit label
-        fprintf(out_file, "exit_loop_%d:\n", state.loop_idx++);
+        fprintf(out_file, ".exit_loop_%d:\n", state.loop_idx++);
       }
       ;
 
 while_loop: FOR for_cmp block {
         // exit label
-        fprintf(out_file, "exit_loop_%d:\n", state.loop_idx++);
+        fprintf(out_file, "jmp start_loop_%d\n", state.loop_idx);
+        fprintf(out_file, ".exit_loop_%d:\n", state.loop_idx++);
       }
       ;
 
