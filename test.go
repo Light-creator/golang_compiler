@@ -3,10 +3,9 @@ package main
 import "fmt"
 
 func main() {
-    x := 0
+    a := 15
 		
-		if x < 10 {
-			fmt.Println(x)
-		}
+		x := a / (10 + 5)
 
+		fmt.Println(x)
 }

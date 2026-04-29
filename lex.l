@@ -40,6 +40,7 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 "+"                 return PLUS;
 "-"                 return MINUS;
 "*"                 return STAR;
+"/"                 return SLASH;
 
 "<"                 return LESS;
 ">"                 return GREATER;

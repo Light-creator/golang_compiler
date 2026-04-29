@@ -5,6 +5,7 @@
 
 #define INSTR_COUNT 2048
 #define MEM_SZ 1024
+#define STACK_SZ 256
 #define BUFF_SZ 256
 
 typedef enum {
@@ -13,7 +14,7 @@ typedef enum {
 } regs_t;
 
 typedef enum {
-  OP_CMP, OP_MOV, OP_JZ, OP_JL, OP_JG, OP_JLE, OP_JGE, OP_JMP, OP_INC, OP_OUT
+  OP_CMP, OP_MOV, OP_JZ, OP_JL, OP_JG, OP_JLE, OP_JGE, OP_JMP, OP_INC, OP_OUT, OP_POP, OP_PUSH, OP_ADD, OP_IMUL, OP_IDIV
 } opcode_t;
 
 typedef enum {
@@ -39,6 +40,9 @@ typedef struct vm_t_ {
   // memory
   int mem[MEM_SZ];
   int regs[COUNT_REGS];
+  
+  int stack[STACK_SZ];
+  int stack_sz;
   
   // flags
   int zero_flag;
@@ -242,7 +246,7 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].a.val = a; 
         vm.prog_sz++;
       } else if (sscanf(line, "add r%d, r%d", &a, &b) == 2) {
-        vm.prog[vm.prog_sz].opcode = OP_CMP; 
+        vm.prog[vm.prog_sz].opcode = OP_ADD; 
 
         // a operand
         vm.prog[vm.prog_sz].a.operand_type = REG; 
@@ -252,19 +256,44 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].b.operand_type = REG; 
         vm.prog[vm.prog_sz].b.val = b; 
         vm.prog_sz++;
-      } else if (sscanf(line, "add r%d, %d", &a, &b) == 2) {
-        vm.prog[vm.prog_sz].opcode = OP_CMP; 
+      } else if (sscanf(line, "imul r%d, r%d", &a, &b) == 2) {
+        vm.prog[vm.prog_sz].opcode = OP_IMUL; 
 
         // a operand
         vm.prog[vm.prog_sz].a.operand_type = REG; 
         vm.prog[vm.prog_sz].a.val = a; 
 
         // b operand
-        vm.prog[vm.prog_sz].b.operand_type = NUM; 
+        vm.prog[vm.prog_sz].b.operand_type = REG; 
         vm.prog[vm.prog_sz].b.val = b; 
         vm.prog_sz++;
-      }  else if (sscanf(line, "out r%d", &a) == 1) {
+      } else if (sscanf(line, "idiv r%d, r%d", &a, &b) == 2) {
+        vm.prog[vm.prog_sz].opcode = OP_IDIV; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+
+        // b operand
+        vm.prog[vm.prog_sz].b.operand_type = REG; 
+        vm.prog[vm.prog_sz].b.val = b; 
+        vm.prog_sz++;
+      } else if (sscanf(line, "out r%d", &a) == 1) {
         vm.prog[vm.prog_sz].opcode = OP_OUT; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "pop r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_POP; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "push r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_PUSH; 
 
         // a operand
         vm.prog[vm.prog_sz].a.operand_type = REG; 
@@ -283,7 +312,7 @@ void fetch_and_execute() {
 
   // fetch
   instr_t* instr = &vm.prog[vm.ip];
-  sleep(1);
+  // sleep(1);
 
   printf("ip: %d\n", vm.ip);
   switch(instr->opcode) {
@@ -319,6 +348,31 @@ void fetch_and_execute() {
     case OP_INC:
       printf("inc r%d\n", instr->a.val);
       vm.regs[instr->a.val]++;
+      vm.ip++;
+      break;
+    case OP_ADD:
+      printf("add\n");
+      vm.regs[instr->a.val] += vm.regs[instr->b.val];
+      vm.ip++;
+      break;
+    case OP_IMUL:
+      printf("imul\n");
+      vm.regs[instr->a.val] *= vm.regs[instr->b.val];
+      vm.ip++;
+      break;
+    case OP_IDIV:
+      printf("idiv\n");
+      vm.regs[instr->a.val] /= vm.regs[instr->b.val];
+      vm.ip++;
+      break;
+    case OP_PUSH:
+      printf("push r%d\n", instr->a.val);
+      vm.stack[++vm.stack_sz] = get_operand_value(&instr->a);
+      vm.ip++;
+      break;
+    case OP_POP:
+      printf("pop r%d\n", instr->a.val);
+      vm.regs[instr->a.val] = vm.stack[vm.stack_sz--];
       vm.ip++;
       break;
     case OP_MOV:

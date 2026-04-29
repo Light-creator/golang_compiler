@@ -103,7 +103,7 @@ void write_cmp_stub_vv(var_t* a, var_t* b) {
 %token KW_PACKAGE KW_IMPORT KW_FUNC KW_RETURN
 %token FOR IF
 %token LPAR RPAR LCURL RCURL
-%token COLON DOT SEMICOLON PLUS MINUS STAR LESS GREATER
+%token COLON DOT SEMICOLON PLUS MINUS STAR LESS GREATER SLASH
 %token <name> IDENT
 %token <num> NUMBER
 %token STRING
@@ -160,11 +160,17 @@ iter: IDENT PLUS PLUS {
     }
     ;
 
-define: IDENT DEFINE NUMBER { 
-        var_t* var = create_var($1, $3);
-        write_instruction(DEFINE_INSTR, var);
-        $$ = var;
+define: IDENT DEFINE expr {
+          var_t* var = create_var($1, 0);
+          fprintf(out_file, "pop r5\n");
+          fprintf(out_file, "mov [%d], r5\n", var->idx);
+          $$ = var;
       }
+      // | IDENT DEFINE NUMBER { 
+      //   var_t* var = create_var($1, $3);
+      //   write_instruction(DEFINE_INSTR, var);
+      //   $$ = var;
+      // }
       ;
 
 for_cmp: IDENT LESS NUMBER {
@@ -282,12 +288,12 @@ while_loop: FOR for_cmp block {
       }
       ;
 
-print_stmt: PRINT LPAR expr RPAR {
+print_stmt: PRINT LPAR print_expr RPAR {
         fprintf(out_file, "out r4\n");
       }
       ;
 
-expr:
+print_expr:
     | NUMBER { fprintf(out_file, "mov r4, %d\n", $1); }
     | IDENT { 
       var_t* var = get_var($1);
@@ -300,6 +306,44 @@ if_stmt: IF for_cmp block {
       }
       ;
 
+
+expr: expr PLUS mul {
+      fprintf(out_file, "pop r6\n");
+      fprintf(out_file, "pop r5\n");
+      fprintf(out_file, "add r5, r6\n");
+      fprintf(out_file, "push r5\n");
+    }
+    | mul
+    ;
+
+mul: mul STAR term {
+      fprintf(out_file, "pop r6\n");
+      fprintf(out_file, "pop r5\n");
+      fprintf(out_file, "imul r5, r6\n");
+      fprintf(out_file, "push r5\n");
+    }
+    | mul SLASH term {
+      fprintf(out_file, "pop r6\n");
+      fprintf(out_file, "pop r5\n");
+      fprintf(out_file, "idiv r5, r6\n");
+      fprintf(out_file, "push r5\n");
+    }
+    | term 
+    ;
+
+term: NUMBER { 
+        fprintf(out_file, "mov r5, %d\n", $1); 
+        fprintf(out_file, "push r5\n");
+      }
+      | IDENT { 
+        var_t* var = get_var($1);
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "push r5\n");
+      }
+      | LPAR expr RPAR {
+        // fprintf(out_file, "mov r5, r6\n");
+      }
+      ;
 
 %%
 
