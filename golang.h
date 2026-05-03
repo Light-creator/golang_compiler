@@ -24,6 +24,8 @@ typedef struct state_t_ {
 
   int loop_stack[BUFF_SZ];
   int loop_stack_idx;
+
+  int line_counter;
 } state_t;
 
 #endif

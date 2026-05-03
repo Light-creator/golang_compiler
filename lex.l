@@ -4,6 +4,8 @@
 #include "parser.tab.h"
 #include <string.h>
 
+extern state_t state;
+
 %}
 
 %option noyywrap
@@ -13,9 +15,11 @@ LETTER  [a-zA-Z_]
 DIGIT   [0-9]
 IDENT   {LETTER}({LETTER}|{DIGIT})*
 
+
 %%
 
-[ \t\r\n]+          ;   
+[ \t\r]+          ;   
+"\n"                { state.line_counter++; }
 
 "package"           return KW_PACKAGE;
 "import"            return KW_IMPORT;
@@ -23,7 +27,10 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 "return"            return KW_RETURN;
 "for"               return FOR;
 "if"                return IF;
-"fmt.Println"       return PRINT;
+"fmt"               return FMT_PACKAGE;
+"var"               return VAR;
+"Print"             return PRINT;
+"Println"           return PRINTLN;
 
 "("                 return LPAR;
 ")"                 return RPAR;
@@ -36,6 +43,7 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 
 ":="                return DEFINE;
 "=="                return EQ;
+"="                 return ASSIGN;
 
 "+"                 return PLUS;
 "-"                 return MINUS;

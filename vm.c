@@ -8,13 +8,15 @@
 #define STACK_SZ 256
 #define BUFF_SZ 256
 
+#define DEBUG 0
+
 typedef enum {
   R1 = 0, 
   R2, R3, R4, R5, R6, R7, R8, COUNT_REGS
 } regs_t;
 
 typedef enum {
-  OP_CMP, OP_MOV, OP_JZ, OP_JL, OP_JG, OP_JLE, OP_JGE, OP_JMP, OP_INC, OP_OUT, OP_POP, OP_PUSH, OP_ADD, OP_IMUL, OP_IDIV
+  OP_CMP, OP_MOV, OP_JZ, OP_JNZ, OP_JL, OP_JG, OP_JLE, OP_JGE, OP_JMP, OP_INC, OP_OUT, OP_POP, OP_PUSH, OP_ADD, OP_IMUL, OP_IDIV, OP_OUTA
 } opcode_t;
 
 typedef enum {
@@ -94,7 +96,7 @@ void fill_all_jmps() {
       exit(1);
     }
     
-    printf("Found at %d\n", state.jmps[i].label->instr_idx);
+    // printf("Found at %d\n", state.jmps[i].label->instr_idx);
     state.jmps[i].instr->a.val = state.jmps[i].label->instr_idx;
   }
 }
@@ -208,7 +210,7 @@ void load_program(char* filename) {
         if(!label_ptr) {
           label_ptr = &state.labels[state.labels_sz];
           int l = strlen(label);
-          printf("%d\n", l);
+           // printf("%d\n", l);
           memcpy(label_ptr->name, label, l-1);
         }
 
@@ -222,7 +224,11 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].opcode = OP_JZ; 
         jmp_parse(label);
         vm.prog_sz++;
-      }else if(sscanf(line, "jle %s:", label) == 1) {
+      } else if(sscanf(line, "jnz %s:", label) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_JNZ; 
+        jmp_parse(label);
+        vm.prog_sz++;
+      } else if(sscanf(line, "jle %s:", label) == 1) {
         vm.prog[vm.prog_sz].opcode = OP_JLE; 
         jmp_parse(label);
         vm.prog_sz++;
@@ -285,6 +291,13 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].a.operand_type = REG; 
         vm.prog[vm.prog_sz].a.val = a; 
         vm.prog_sz++;
+      } else if (sscanf(line, "outa r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_OUTA; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
       } else if(sscanf(line, "pop r%d", &a) == 1) {
         vm.prog[vm.prog_sz].opcode = OP_POP; 
 
@@ -303,8 +316,10 @@ void load_program(char* filename) {
   }
 
   fill_all_jmps();
+  #if DEBUG
   printf("vm.prog_sz: %d\n", vm.prog_sz);
-  
+  #endif
+
   fclose(f);
 }
 
@@ -313,70 +328,104 @@ void fetch_and_execute() {
   // fetch
   instr_t* instr = &vm.prog[vm.ip];
   // sleep(1);
-
+  #if DEBUG
   printf("ip: %d\n", vm.ip);
+  #endif
   switch(instr->opcode) {
     case OP_JMP:
+      #if DEBUG
       printf("jmp\n");
+      #endif
       vm.ip = instr->a.val;
       break;
     case OP_JZ:
+      #if DEBUG
       printf("jz: %d\n", instr->a.val);
+      #endif
       if(vm.zero_flag) vm.ip = instr->a.val;
       else vm.ip++; 
       break;
+    case OP_JNZ:
+      #if DEBUG
+      printf("jnz: %d\n", instr->a.val);
+      #endif
+      if(!vm.zero_flag) vm.ip = instr->a.val;
+      else vm.ip++; 
+      break;
     case OP_JL:
+      #if DEBUG
       printf("jl: %d\n", instr->a.val);
+      #endif
       if(vm.neg_flag && !vm.zero_flag) vm.ip = instr->a.val;
       else vm.ip++; 
       break;
     case OP_JG:
+      #if DEBUG
       printf("jg: %d\n", instr->a.val);
+      #endif
       if(!vm.neg_flag && !vm.zero_flag) vm.ip = instr->a.val;
       else vm.ip++; 
       break;
     case OP_JLE:
+      #if DEBUG
       printf("jle: %d\n", instr->a.val);
+      #endif
       if(vm.neg_flag || vm.zero_flag) vm.ip = instr->a.val;
       else vm.ip++; 
       break;
     case OP_JGE:
+      #if DEBUG
       printf("jge: %d\n", instr->a.val);
+      #endif
       if(!vm.neg_flag || vm.zero_flag) vm.ip = instr->a.val;
       else vm.ip++; 
       break;
     case OP_INC:
+      #if DEBUG
       printf("inc r%d\n", instr->a.val);
+      #endif
       vm.regs[instr->a.val]++;
       vm.ip++;
       break;
     case OP_ADD:
+      #if DEBUG
       printf("add\n");
+      #endif
       vm.regs[instr->a.val] += vm.regs[instr->b.val];
       vm.ip++;
       break;
     case OP_IMUL:
+      #if DEBUG
       printf("imul\n");
+      #endif
       vm.regs[instr->a.val] *= vm.regs[instr->b.val];
       vm.ip++;
       break;
     case OP_IDIV:
+      #if DEBUG
       printf("idiv\n");
+      #endif
       vm.regs[instr->a.val] /= vm.regs[instr->b.val];
       vm.ip++;
       break;
     case OP_PUSH:
+      #if DEBUG
       printf("push r%d\n", instr->a.val);
+      #endif
       vm.stack[++vm.stack_sz] = get_operand_value(&instr->a);
       vm.ip++;
       break;
     case OP_POP:
+      #if DEBUG
       printf("pop r%d\n", instr->a.val);
+      #endif
       vm.regs[instr->a.val] = vm.stack[vm.stack_sz--];
       vm.ip++;
       break;
     case OP_MOV:
+      #if DEBUG
       printf("mov\n");
+      #endif
       if(instr->a.operand_type == REG) {
         vm.regs[instr->a.val] = get_operand_value(&instr->b);
       } else if(instr->a.operand_type == ADDR) {
@@ -388,7 +437,9 @@ void fetch_and_execute() {
       int a_val = get_operand_value(&instr->a);
       int b_val = get_operand_value(&instr->b);
       int cmp = a_val - b_val;
+      #if DEBUG
       printf("cmp(%d, %d) = %d\n", a_val, b_val, cmp);
+      #endif
       if(cmp == 0) {
         vm.zero_flag = 1;
         vm.neg_flag = 0;
@@ -400,7 +451,16 @@ void fetch_and_execute() {
       break;
                  }
     case OP_OUT:
+      #if DEBUG
       printf("out r%d\n", instr->a.val);
+      #endif
+      printf("%d", vm.regs[instr->a.val]);
+      vm.ip++;
+      break;
+    case OP_OUTA:
+      #if DEBUG
+      printf("outa r%d\n", instr->a.val);
+      #endif
       printf("%d\n", vm.regs[instr->a.val]);
       vm.ip++;
       break;

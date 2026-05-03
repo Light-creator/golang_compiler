@@ -40,6 +40,9 @@ var_t* create_var(char* name, int num) {
   if(!var_exists) {
     v = &vars[sz_vars++];
     memcpy(v->name, name, name_sz);
+  } else {
+    printf("Error on line %d: Variable %s is already defined!\n", state.line_counter, name);
+    exit(1);
   }
 
   v->num = num;
@@ -58,7 +61,7 @@ var_t* get_var(char* name) {
   }
 
 
-  printf("Semantic error: Use of undefined variable \"%s\"\n", name);
+  printf("Error on line %d: Use of undefined variable \"%s\"\n", state.line_counter, name);
   exit(1);
 }
  
@@ -101,15 +104,15 @@ void write_cmp_stub_vv(var_t* a, var_t* b) {
 }
 
 %token KW_PACKAGE KW_IMPORT KW_FUNC KW_RETURN
-%token FOR IF
+%token FOR IF VAR
 %token LPAR RPAR LCURL RCURL
 %token COLON DOT SEMICOLON PLUS MINUS STAR LESS GREATER SLASH
 %token <name> IDENT
 %token <num> NUMBER
 %token STRING
-%token DEFINE EQ PRINT
+%token DEFINE EQ PRINT PRINTLN FMT_PACKAGE ASSIGN
 
-%type <var> define iter for_iter for_init
+%type <var> define redefine iter for_iter for_init
 
 
 %%
@@ -150,6 +153,7 @@ stmt: define
     | while_loop
     | print_stmt
     | if_stmt
+    | redefine
     ;
 
 iter: IDENT PLUS PLUS {
@@ -160,17 +164,27 @@ iter: IDENT PLUS PLUS {
     }
     ;
 
+redefine: IDENT ASSIGN expr {
+          // var_t* var = create_var($1, 0);
+          var_t* var = get_var($1);
+          fprintf(out_file, "pop r5\n");
+          fprintf(out_file, "mov [%d], r5\n", var->idx);
+          $$ = var;
+        }
+        ;
+
 define: IDENT DEFINE expr {
           var_t* var = create_var($1, 0);
           fprintf(out_file, "pop r5\n");
           fprintf(out_file, "mov [%d], r5\n", var->idx);
           $$ = var;
+      } 
+      | VAR IDENT ASSIGN expr {
+          var_t* var = create_var($2, 0);
+          fprintf(out_file, "pop r5\n");
+          fprintf(out_file, "mov [%d], r5\n", var->idx);
+          $$ = var;
       }
-      // | IDENT DEFINE NUMBER { 
-      //   var_t* var = create_var($1, $3);
-      //   write_instruction(DEFINE_INSTR, var);
-      //   $$ = var;
-      // }
       ;
 
 for_cmp: IDENT LESS NUMBER {
@@ -229,7 +243,7 @@ for_cmp: IDENT LESS NUMBER {
         var_t* var = get_var($1);
         fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
         write_cmp_stub_vn(var, $3);
-        fprintf(out_file, "jz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+        fprintf(out_file, "jnz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
       }
       | NUMBER EQ IDENT {
         state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
@@ -237,7 +251,7 @@ for_cmp: IDENT LESS NUMBER {
         var_t* var = get_var($3);
         fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
         write_cmp_stub_nv($1, var);
-        fprintf(out_file, "jz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+        fprintf(out_file, "jnz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
       }
       | IDENT EQ IDENT {
         state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
@@ -246,7 +260,7 @@ for_cmp: IDENT LESS NUMBER {
         var_t* b = get_var($3);
         fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
         write_cmp_stub_vv(a, b);
-        fprintf(out_file, "jz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+        fprintf(out_file, "jnz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
       }
       ;
 
@@ -288,8 +302,11 @@ while_loop: FOR for_cmp block {
       }
       ;
 
-print_stmt: PRINT LPAR print_expr RPAR {
+print_stmt: FMT_PACKAGE DOT PRINT LPAR print_expr RPAR {
         fprintf(out_file, "out r4\n");
+      }
+      | FMT_PACKAGE DOT PRINTLN LPAR print_expr RPAR {
+        fprintf(out_file, "outa r4\n");
       }
       ;
 
@@ -369,6 +386,8 @@ int main(int argc, char **argv) {
       printf("Failed to open out.asm\n");
       exit(1);
     }
+
+    state.line_counter = 1;
 
     extern FILE *yyin;
     yyin = f;
