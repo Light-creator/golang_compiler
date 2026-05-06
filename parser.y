@@ -40,6 +40,11 @@ var_t* create_var(char* name, int num) {
   if(!var_exists) {
     v = &vars[sz_vars++];
     memcpy(v->name, name, name_sz);
+    v->scope_idx = state.g_scope_idx;
+    v->is_active = true;
+  } else if(!v->is_active) {
+    v->scope_idx = state.g_scope_idx;
+    v->is_active = true;
   } else {
     printf("Error on line %d: Variable %s is already defined!\n", state.line_counter, name);
     exit(1);
@@ -56,7 +61,7 @@ var_t* get_var(char* name) {
 
   for(int i=0; i<sz_vars; i++) {
     if(strncmp(name, vars[i].name, l) == 0) {
-      return &vars[i];
+      if(vars[i].is_active) return &vars[i];
     }
   }
 
@@ -77,22 +82,18 @@ void write_instruction(instr_type_t type, var_t* var) {
   }
 }
 
-void write_cmp_stub_vn(var_t* var, int num) {
-    fprintf(out_file, "mov r2, [%d]\n", var->idx);
-    fprintf(out_file, "mov r3, %d\n", num);
-    fprintf(out_file, "cmp r2, r3\n");
+void write_cmp_stub() {
+  fprintf(out_file, "pop r3\n");
+  fprintf(out_file, "pop r2\n");
+  fprintf(out_file, "cmp r2, r3\n");
 }
 
-void write_cmp_stub_nv(int num, var_t* var) {
-    fprintf(out_file, "mov r2, %d\n", num);
-    fprintf(out_file, "mov r3, [%d]\n", var->idx);
-    fprintf(out_file, "cmp r2, r3\n");
-}
-
-void write_cmp_stub_vv(var_t* a, var_t* b) {
-    fprintf(out_file, "mov r2, [%d]\n", a->idx);
-    fprintf(out_file, "mov r3, [%d]\n", b->idx);
-    fprintf(out_file, "cmp r2, r3\n");
+void clear_vars() {
+  for(int i=0; i<sz_vars; i++) {
+    if(vars[i].scope_idx == state.g_scope_idx) {
+      vars[i].is_active = false;
+    } 
+  }
 }
 
 %}
@@ -106,11 +107,12 @@ void write_cmp_stub_vv(var_t* a, var_t* b) {
 %token KW_PACKAGE KW_IMPORT KW_FUNC KW_RETURN
 %token FOR IF VAR
 %token LPAR RPAR LCURL RCURL
-%token COLON DOT SEMICOLON PLUS MINUS STAR LESS GREATER SLASH
+%token COLON DOT SEMICOLON PLUS MINUS STAR SLASH
 %token <name> IDENT
 %token <num> NUMBER
 %token STRING
-%token DEFINE EQ PRINT PRINTLN FMT_PACKAGE ASSIGN
+%token DEFINE PRINT PRINTLN FMT_PACKAGE ASSIGN
+%token EQ NOTEQ LESS GREATER GREATER_OR_EQ LESS_OR_EQ
 
 %type <var> define redefine iter for_iter for_init
 
@@ -187,80 +189,29 @@ define: IDENT DEFINE expr {
       }
       ;
 
-for_cmp: IDENT LESS NUMBER {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* var = get_var($1);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_vn(var, $3);
-        fprintf(out_file, "jge exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+general_cmp: expr EQ expr {
+        write_cmp_stub();
+        fprintf(out_file, "jnz exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
-      | NUMBER LESS IDENT {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* var = get_var($3);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_nv($1, var);
-        fprintf(out_file, "jge exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+      | expr NOTEQ expr {
+        write_cmp_stub();
+        fprintf(out_file, "jz exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
-      | IDENT LESS IDENT {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* a = get_var($1);
-        var_t* b = get_var($3);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_vv(a, b);
-        fprintf(out_file, "jge exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+      | expr LESS expr {
+        write_cmp_stub();
+        fprintf(out_file, "jge exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
-      | NUMBER GREATER IDENT {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* var = get_var($3);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_nv($1, var);
-        fprintf(out_file, "jle exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+      | expr GREATER expr {
+        write_cmp_stub();
+        fprintf(out_file, "jle exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
-      | IDENT GREATER NUMBER {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* var = get_var($1);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_vn(var, $3);
-        fprintf(out_file, "jle exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+      | expr GREATER_OR_EQ expr {
+        write_cmp_stub();
+        fprintf(out_file, "jl exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
-      | IDENT GREATER IDENT {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* a = get_var($1);
-        var_t* b = get_var($3);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_vv(a, b);
-        fprintf(out_file, "jle exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-      }
-      | IDENT EQ NUMBER {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* var = get_var($1);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_vn(var, $3);
-        fprintf(out_file, "jnz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-      }
-      | NUMBER EQ IDENT {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* var = get_var($3);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_nv($1, var);
-        fprintf(out_file, "jnz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-      }
-      | IDENT EQ IDENT {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        var_t* a = get_var($1);
-        var_t* b = get_var($3);
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        write_cmp_stub_vv(a, b);
-        fprintf(out_file, "jnz exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+      | expr LESS_OR_EQ expr {
+        write_cmp_stub();
+        fprintf(out_file, "jg exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
       ;
 
@@ -276,31 +227,47 @@ for_init: define {
       }
       ;
 
-for_loop: FOR for_init SEMICOLON for_cmp SEMICOLON for_iter block {
-        // iterate value
-        var_t* iter_var = $6;
-        fprintf(out_file, "mov r1, [%d]\n", iter_var->idx);
-        fprintf(out_file, "add r1, %d\n", iter_var->add_iter_num);
-        fprintf(out_file, "mov [%d], r1\n", iter_var->idx);
-        
-        // jmp to prologue
-        fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
-        
+while_loop: FOR {
+        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
+        state.loop_idx++;
+        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+
+        state.g_scope_idx++;
+      } general_cmp block {
         // exit label
+        fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
         fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
         state.loop_stack_idx--;
+
+        clear_vars();
+        state.g_scope_idx--;
       }
       ;
 
-while_loop: FOR for_cmp block {
-        // exit label
-        fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
-        fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
-        state.loop_stack_idx--;
+for_loop: FOR {
+          state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
+          state.loop_idx++;
+          fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+          
+          state.g_scope_idx++;
+        } for_init SEMICOLON general_cmp SEMICOLON for_iter block {
+          // iterate value
+          var_t* iter_var = $7;
+          fprintf(out_file, "mov r1, [%d]\n", iter_var->idx);
+          fprintf(out_file, "add r1, %d\n", iter_var->add_iter_num);
+          fprintf(out_file, "mov [%d], r1\n", iter_var->idx);
         
-        printf("exit state.loop_stack_idx: %d\n", state.loop_stack_idx);
-      }
-      ;
+          // jmp to prologue
+          fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
+        
+          // exit label
+          fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
+          state.loop_stack_idx--;
+
+          clear_vars();
+          state.g_scope_idx--;
+        }
+        ;
 
 print_stmt: FMT_PACKAGE DOT PRINT LPAR print_expr RPAR {
         fprintf(out_file, "out r4\n");
@@ -318,8 +285,18 @@ print_expr:
     }
     ;
 
-if_stmt: IF for_cmp block {
-      fprintf(out_file, ".exit_label_%d:\n", state.if_idx++);
+if_stmt: IF {
+        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
+        state.loop_idx++;
+        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+        
+        state.g_scope_idx++;
+      } general_cmp block {
+        fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
+        state.loop_stack_idx--;
+        
+        clear_vars();
+        state.g_scope_idx--;
       }
       ;
 

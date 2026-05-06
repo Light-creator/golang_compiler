@@ -41,17 +41,21 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 "."                 return DOT;
 ";"                 return SEMICOLON;
 
-":="                return DEFINE;
 "=="                return EQ;
+"!="                return NOTEQ;
+">="                return GREATER_OR_EQ;
+"<="                return LESS_OR_EQ;
+"<"                 return LESS;
+">"                 return GREATER;
+
+
+":="                return DEFINE;
 "="                 return ASSIGN;
 
 "+"                 return PLUS;
 "-"                 return MINUS;
 "*"                 return STAR;
 "/"                 return SLASH;
-
-"<"                 return LESS;
-">"                 return GREATER;
 
 \"([^"]*)\"         return STRING;
 

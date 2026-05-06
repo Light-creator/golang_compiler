@@ -16,6 +16,9 @@ typedef struct var_t_ {
   int sz;
   int num;
   int add_iter_num;
+
+  int scope_idx;
+  int is_active;
 } var_t;
 
 typedef struct state_t_ {
@@ -26,6 +29,7 @@ typedef struct state_t_ {
   int loop_stack_idx;
 
   int line_counter;
+  int g_scope_idx;
 } state_t;
 
 #endif

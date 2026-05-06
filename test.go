@@ -3,14 +3,22 @@ package main
 import "fmt"
 
 func main() {
-    a := 15
+    a := 100
 		
-		if a == 15 {
-			fmt.Println(123)
-		}
+		if a >= 15 + 10 {
+			x := 13
 
-		for i := 0; i<3; i++ {
-			a++
+			for x < 17 {
+				x++
+			}
+
+			fmt.Println(x)
+
+			if x < 20 {
+				fmt.Println(200)
+			}
+
+			fmt.Println(123)
 		}
 
 		fmt.Println(a)
