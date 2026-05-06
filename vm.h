@@ -24,10 +24,12 @@ typedef enum {
   OP_JGE, 
   OP_JMP, 
   OP_INC, 
+  OP_DEC, 
   OP_OUT, 
   OP_POP, 
   OP_PUSH, 
   OP_ADD, 
+  OP_SUB, 
   OP_IMUL, 
   OP_IDIV, 
   OP_OUTA

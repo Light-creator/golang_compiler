@@ -107,14 +107,20 @@ void clear_vars() {
 %token KW_PACKAGE KW_IMPORT KW_FUNC KW_RETURN
 %token FOR IF VAR
 %token LPAR RPAR LCURL RCURL
-%token COLON DOT SEMICOLON PLUS MINUS STAR SLASH
+%token COLON DOT SEMICOLON PLUS MINUS STAR SLASH INC DEC PLUS_EQ MINUS_EQ MUL_EQ DIV_EQ
 %token <name> IDENT
 %token <num> NUMBER
 %token STRING
 %token DEFINE PRINT PRINTLN FMT_PACKAGE ASSIGN
 %token EQ NOTEQ LESS GREATER GREATER_OR_EQ LESS_OR_EQ
 
-%type <var> define redefine iter for_iter for_init
+
+%type <var> define redefine for_iter for_init
+
+%left PLUS MINUS
+%left STAR SLASH
+%right UMINUS
+%nonassoc INC DEC 
 
 
 %%
@@ -150,21 +156,13 @@ stmt_list
     ;
 
 stmt: define
-    | iter
     | for_loop
-    | while_loop
     | print_stmt
     | if_stmt
     | redefine
+    | expr
     ;
 
-iter: IDENT PLUS PLUS {
-      var_t* var = get_var($1);
-      fprintf(out_file, "mov r1, [%d]\n", var->idx);
-      fprintf(out_file, "inc r1\n");
-      fprintf(out_file, "mov [%d], r1\n", var->idx);
-    }
-    ;
 
 redefine: IDENT ASSIGN expr {
           // var_t* var = create_var($1, 0);
@@ -215,7 +213,7 @@ general_cmp: expr EQ expr {
       }
       ;
 
-for_iter: IDENT PLUS PLUS {
+for_iter: IDENT INC {
         var_t* var = get_var($1);
         var->add_iter_num = 1;
         $$ = var;
@@ -227,40 +225,36 @@ for_init: define {
       }
       ;
 
-while_loop: FOR {
-        state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-        state.loop_idx++;
-        fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-
-        state.g_scope_idx++;
-      } general_cmp block {
-        // exit label
-        fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
-        fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
-        state.loop_stack_idx--;
-
-        clear_vars();
-        state.g_scope_idx--;
-      }
-      ;
-
 for_loop: FOR {
+          state.g_scope_idx++;
+          
           state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
           state.loop_idx++;
+        } for_init {
           fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-          
-          state.g_scope_idx++;
-        } for_init SEMICOLON general_cmp SEMICOLON for_iter block {
+        } SEMICOLON general_cmp SEMICOLON for_iter block {
           // iterate value
-          var_t* iter_var = $7;
+          var_t* iter_var = $8;
           fprintf(out_file, "mov r1, [%d]\n", iter_var->idx);
           fprintf(out_file, "add r1, %d\n", iter_var->add_iter_num);
           fprintf(out_file, "mov [%d], r1\n", iter_var->idx);
+          fprintf(out_file, "push r1\n");
         
           // jmp to prologue
           fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
         
           // exit label
+          fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
+          state.loop_stack_idx--;
+
+          clear_vars();
+          state.g_scope_idx--;
+        }
+        | {
+          fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+        } general_cmp block {
+          // exit label
+          fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
           fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
           state.loop_stack_idx--;
 
@@ -286,11 +280,11 @@ print_expr:
     ;
 
 if_stmt: IF {
+        state.g_scope_idx++;
+        
         state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
         state.loop_idx++;
         fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        
-        state.g_scope_idx++;
       } general_cmp block {
         fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
         state.loop_stack_idx--;
@@ -305,6 +299,12 @@ expr: expr PLUS mul {
       fprintf(out_file, "pop r6\n");
       fprintf(out_file, "pop r5\n");
       fprintf(out_file, "add r5, r6\n");
+      fprintf(out_file, "push r5\n");
+    }
+    | expr MINUS mul {
+      fprintf(out_file, "pop r6\n");
+      fprintf(out_file, "pop r5\n");
+      fprintf(out_file, "sub r5, r6\n");
       fprintf(out_file, "push r5\n");
     }
     | mul
@@ -332,6 +332,66 @@ term: NUMBER {
       | IDENT { 
         var_t* var = get_var($1);
         fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "push r5\n");
+      }
+      | IDENT INC {
+        var_t* var = get_var($1);
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "push r5\n");
+        fprintf(out_file, "inc r5\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
+      }
+      | INC IDENT {
+        var_t* var = get_var($2);
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "inc r5\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
+        fprintf(out_file, "push r5\n");
+      }
+      | IDENT DEC {
+        var_t* var = get_var($1);
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "push r5\n");
+        fprintf(out_file, "dec r5\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
+      }
+      | DEC IDENT {
+        var_t* var = get_var($2);
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "dec r5\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
+        fprintf(out_file, "push r5\n");
+      }
+      | IDENT PLUS_EQ expr {
+        var_t* var = get_var($1);
+        fprintf(out_file, "pop r6\n");
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "add r5, r6\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
+        fprintf(out_file, "push r5\n");
+      }
+      | IDENT MINUS_EQ expr {
+        var_t* var = get_var($1);
+        fprintf(out_file, "pop r6\n");
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "sub r5, r6\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
+        fprintf(out_file, "push r5\n");
+      }
+      | IDENT MUL_EQ expr {
+        var_t* var = get_var($1);
+        fprintf(out_file, "pop r6\n");
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "imul r5, r6\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
+        fprintf(out_file, "push r5\n");
+      }
+      | IDENT DIV_EQ expr {
+        var_t* var = get_var($1);
+        fprintf(out_file, "pop r6\n");
+        fprintf(out_file, "mov r5, [%d]\n", var->idx);
+        fprintf(out_file, "idiv r5, r6\n");
+        fprintf(out_file, "mov [%d], r5\n", var->idx);
         fprintf(out_file, "push r5\n");
       }
       | LPAR expr RPAR {

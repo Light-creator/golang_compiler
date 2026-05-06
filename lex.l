@@ -52,6 +52,12 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 ":="                return DEFINE;
 "="                 return ASSIGN;
 
+"++"                return INC;
+"--"                return DEC;
+"+="                return PLUS_EQ;
+"-="                return MINUS_EQ;
+"*="                return MUL_EQ;
+"/="                return DIV_EQ;
 "+"                 return PLUS;
 "-"                 return MINUS;
 "*"                 return STAR;

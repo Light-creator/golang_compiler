@@ -183,6 +183,13 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].a.operand_type = REG; 
         vm.prog[vm.prog_sz].a.val = a; 
         vm.prog_sz++;
+      } else if(sscanf(line, "dec r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_DEC; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
       } else if (sscanf(line, "add r%d, r%d", &a, &b) == 2) {
         vm.prog[vm.prog_sz].opcode = OP_ADD; 
 
@@ -194,8 +201,30 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].b.operand_type = REG; 
         vm.prog[vm.prog_sz].b.val = b; 
         vm.prog_sz++;
-      }  else if (sscanf(line, "add r%d, %d", &a, &b) == 2) {
+      } else if (sscanf(line, "add r%d, %d", &a, &b) == 2) {
         vm.prog[vm.prog_sz].opcode = OP_ADD; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+
+        // b operand
+        vm.prog[vm.prog_sz].b.operand_type = NUM; 
+        vm.prog[vm.prog_sz].b.val = b; 
+        vm.prog_sz++;
+      } else if (sscanf(line, "sub r%d, r%d", &a, &b) == 2) {
+        vm.prog[vm.prog_sz].opcode = OP_SUB; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+
+        // b operand
+        vm.prog[vm.prog_sz].b.operand_type = REG; 
+        vm.prog[vm.prog_sz].b.val = b; 
+        vm.prog_sz++;
+      } else if (sscanf(line, "sub r%d, %d", &a, &b) == 2) {
+        vm.prog[vm.prog_sz].opcode = OP_SUB; 
 
         // a operand
         vm.prog[vm.prog_sz].a.operand_type = REG; 
@@ -330,12 +359,27 @@ void fetch_and_execute() {
       vm.regs[instr->a.val]++;
       vm.ip++;
       break;
+    case OP_DEC:
+      #if DEBUG
+      printf("dec r%d\n", instr->a.val);
+      #endif
+      vm.regs[instr->a.val]--;
+      vm.ip++;
+      break;
     case OP_ADD:
       #if DEBUG
       printf("add\n");
       #endif
       if(instr->b.operand_type == REG) vm.regs[instr->a.val] += vm.regs[instr->b.val];
       else if(instr->b.operand_type == NUM) vm.regs[instr->a.val] += instr->b.val;
+      vm.ip++;
+      break;
+    case OP_SUB:
+      #if DEBUG
+      printf("add\n");
+      #endif
+      if(instr->b.operand_type == REG) vm.regs[instr->a.val] -= vm.regs[instr->b.val];
+      else if(instr->b.operand_type == NUM) vm.regs[instr->a.val] -= instr->b.val;
       vm.ip++;
       break;
     case OP_IMUL:
