@@ -4,13 +4,11 @@ import "fmt"
 
 func main() {
     a := 100
-		a /= 10
+		i := 0
 
-
-		for i := 0; i<2; i++ {
-			for j := 0; j<2; j++ {
-				fmt.Println(1)
-			}
+		for i != 20 {
+			i += 5
+			fmt.Println(i)
 		}
 
 		fmt.Println(a)

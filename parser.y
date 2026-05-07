@@ -115,7 +115,7 @@ void clear_vars() {
 %token EQ NOTEQ LESS GREATER GREATER_OR_EQ LESS_OR_EQ
 
 
-%type <var> define redefine for_iter for_init
+%type <var> define redefine // for_init
 
 %left PLUS MINUS
 %left STAR SLASH
@@ -213,55 +213,48 @@ general_cmp: expr EQ expr {
       }
       ;
 
-for_iter: IDENT INC {
-        var_t* var = get_var($1);
-        var->add_iter_num = 1;
-        $$ = var;
-      }
-      ;
-
-for_init: define {
-        $$ = $1;
-      }
-      ;
+// for_init: define {
+//         $$ = $1;
+//       }
+//       ;
 
 for_loop: FOR {
           state.g_scope_idx++;
-          
           state.loop_stack[++state.loop_stack_idx] = state.loop_idx;
-          state.loop_idx++;
-        } for_init {
+          state.loop_idx++;        
+          
           fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        } SEMICOLON general_cmp SEMICOLON for_iter block {
-          // iterate value
-          var_t* iter_var = $8;
-          fprintf(out_file, "mov r1, [%d]\n", iter_var->idx);
-          fprintf(out_file, "add r1, %d\n", iter_var->add_iter_num);
-          fprintf(out_file, "mov [%d], r1\n", iter_var->idx);
-          fprintf(out_file, "push r1\n");
-        
-          // jmp to prologue
-          fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
-        
-          // exit label
-          fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
-          state.loop_stack_idx--;
-
-          clear_vars();
-          state.g_scope_idx--;
-        }
-        | {
-          fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
-        } general_cmp block {
-          // exit label
-          fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
-          fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
-          state.loop_stack_idx--;
-
-          clear_vars();
-          state.g_scope_idx--;
-        }
+        } for_body
         ;
+
+for_body: 
+        // IDENT DEFINE {
+        //   delete_last_row();
+        // } expr SEMICOLON {
+        //   var_t* var = create_var($1, 0);
+        //   fprintf(out_file, "pop r5\n");
+        //   fprintf(out_file, "mov [%d], r5\n", var->idx);
+        //
+        //   fprintf(out_file, ".start_label_%d:\n", state.loop_stack[state.loop_stack_idx]); 
+        // } general_cmp SEMICOLON expr block {
+        //   fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
+        //   fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
+        //   state.loop_stack_idx--;
+        //
+        //   clear_vars();
+        //   state.g_scope_idx--;
+        // }
+        // | 
+        general_cmp block {
+          fprintf(out_file, "jmp start_label_%d\n", state.loop_stack[state.loop_stack_idx]);
+          fprintf(out_file, ".exit_label_%d:\n", state.loop_stack[state.loop_stack_idx]);
+          state.loop_stack_idx--;
+
+          clear_vars();
+          state.g_scope_idx--;        
+        }
+        ;  
+        
 
 print_stmt: FMT_PACKAGE DOT PRINT LPAR print_expr RPAR {
         fprintf(out_file, "out r4\n");
