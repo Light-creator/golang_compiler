@@ -27,6 +27,7 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 "return"            return KW_RETURN;
 "for"               return FOR;
 "if"                return IF;
+"else"              return ELSE;
 "fmt"               return FMT_PACKAGE;
 "var"               return VAR;
 "Print"             return PRINT;
@@ -47,6 +48,9 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 "<="                return LESS_OR_EQ;
 "<"                 return LESS;
 ">"                 return GREATER;
+
+"&&"                return AND;
+"||"                return OR;
 
 
 ":="                return DEFINE;

@@ -2,8 +2,8 @@
 #define VM_H_
 
 #define INSTR_COUNT 2048
-#define MEM_SZ 1024
-#define STACK_SZ 256
+#define MEM_SZ 2048
+#define STACK_SZ 1024
 #define BUFF_SZ 256
 
 #define DEBUG 0
@@ -32,7 +32,15 @@ typedef enum {
   OP_SUB, 
   OP_IMUL, 
   OP_IDIV, 
-  OP_OUTA
+  OP_OUTA,
+  OP_SETE,
+  OP_SETNE,
+  OP_SETL,
+  OP_SETLE,
+  OP_SETG,
+  OP_SETGE,
+  OP_OR,
+  OP_AND,
 } opcode_t;
 
 typedef enum {

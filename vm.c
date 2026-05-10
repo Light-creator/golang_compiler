@@ -284,6 +284,70 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].a.operand_type = REG; 
         vm.prog[vm.prog_sz].a.val = a; 
         vm.prog_sz++;
+      } else if(sscanf(line, "sete r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_SETE; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "setne r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_SETNE; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "setl r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_SETL; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "setle r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_SETLE; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "setg r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_SETG; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "setge r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_SETGE; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "and r%d, r%d", &a, &b) == 2) {
+        vm.prog[vm.prog_sz].opcode = OP_AND; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+
+        // b operand
+        vm.prog[vm.prog_sz].b.operand_type = REG; 
+        vm.prog[vm.prog_sz].b.val = b; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "or r%d, r%d", &a, &b) == 2) {
+        vm.prog[vm.prog_sz].opcode = OP_OR; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+
+        // b operand
+        vm.prog[vm.prog_sz].b.operand_type = REG; 
+        vm.prog[vm.prog_sz].b.val = b; 
+        vm.prog_sz++;
       }
   }
 
@@ -405,7 +469,7 @@ void fetch_and_execute() {
       break;
     case OP_POP:
       #if DEBUG
-      printf("pop r%d\n", instr->a.val);
+      printf("pop r%d = %d\n", instr->a.val, vm.stack[vm.stack_sz]);
       #endif
       vm.regs[instr->a.val] = vm.stack[vm.stack_sz--];
       vm.ip++;
@@ -421,6 +485,70 @@ void fetch_and_execute() {
       }
       vm.ip++;
       break;
+    case OP_SETE:
+      #if DEBUG
+      printf("sete\n");
+      #endif
+      if(vm.zero_flag) {
+        vm.regs[instr->a.val] = 1;
+      }
+      else vm.regs[instr->a.val] = 0;
+      vm.ip++;
+      break;
+    case OP_SETNE:
+      #if DEBUG
+      printf("setne\n");
+      #endif
+      if(!vm.zero_flag) vm.regs[instr->a.val] = 1;
+      else vm.regs[instr->a.val] = 0;
+      vm.ip++;
+      break;
+    case OP_SETL:
+      #if DEBUG
+      printf("setl\n");
+      #endif
+      if(!vm.zero_flag && vm.neg_flag) vm.regs[instr->a.val] = 1;
+      else vm.regs[instr->a.val] = 0;
+      vm.ip++;
+      break;
+    case OP_SETLE:
+      #if DEBUG
+      printf("setle\n");
+      #endif
+      if(vm.zero_flag || vm.neg_flag) vm.regs[instr->a.val] = 1;
+      else vm.regs[instr->a.val] = 0;
+      vm.ip++;
+      break;
+    case OP_SETG:
+      #if DEBUG
+      printf("setg\n");
+      #endif
+      if(!vm.zero_flag && !vm.neg_flag) vm.regs[instr->a.val] = 1;
+      else vm.regs[instr->a.val] = 0;
+      vm.ip++;
+      break;
+    case OP_SETGE:
+      #if DEBUG
+      printf("setge\n");
+      #endif
+      if(vm.zero_flag || !vm.neg_flag) vm.regs[instr->a.val] = 1;
+      else vm.regs[instr->a.val] = 0;
+      vm.ip++;
+      break;
+    case OP_AND:
+      #if DEBUG
+      printf("and\n");
+      #endif
+      vm.regs[instr->a.val] = (vm.regs[instr->a.val] && vm.regs[instr->b.val]);
+      vm.ip++;
+      break;
+    case OP_OR:
+      #if DEBUG
+      printf("or r%d, r%d => or %d, %d\n", instr->a.val, instr->b.val, vm.regs[instr->a.val], vm.regs[instr->b.val]);
+      #endif
+      vm.regs[instr->a.val] = (vm.regs[instr->a.val] || vm.regs[instr->b.val]); 
+      vm.ip++;
+      break;
     case OP_CMP: {
       int a_val = get_operand_value(&instr->a);
       int b_val = get_operand_value(&instr->b);
@@ -433,6 +561,9 @@ void fetch_and_execute() {
         vm.neg_flag = 0;
       } else if(cmp < 0) {
         vm.neg_flag = 1;
+        vm.zero_flag = 0;
+      } else if(cmp > 0) {
+        vm.neg_flag = 0;
         vm.zero_flag = 0;
       }
       vm.ip++;
