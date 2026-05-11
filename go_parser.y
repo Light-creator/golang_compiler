@@ -1,3 +1,5 @@
+%define parse.error verbose // подробное описание ошибок
+
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,36 +16,55 @@ int error_count = 0;
     int num;
 }
 
-/* токены */
 %token KW_PACKAGE KW_IMPORT KW_FUNC KW_RETURN
+%token FOR IF ELSE VAR
+%token FMT_PACKAGE PRINT PRINTLN
+%token INT_TYPE STRING_TYPE BOOL_TYPE
+
 %token LPAR RPAR LCURL RCURL
-%token COLON DOT SEMICOLON PLUS MINUS STAR
+%token COMMA DOT SEMICOLON NEWLINE
+
+%token PLUS MINUS STAR SLASH
+%token INC DEC PLUS_EQ MINUS_EQ MUL_EQ DIV_EQ
+%token ASSIGN DEFINE
+
+
+%token EQ NOTEQ LESS GREATER GREATER_OR_EQ LESS_OR_EQ
+%token AND OR
+
 %token <name> IDENT
-%token NUMBER STRING
-%token DEFINE
+%token <num> NUMBER
+%token STRING
+
+%left OR
+%left AND
+%left EQ NOTEQ LESS GREATER GREATER_OR_EQ LESS_OR_EQ
+%left PLUS MINUS
+%left STAR SLASH
+%right UMINUS
 
 %%
 
 program
-    : package_decl import_decl_list func_list
+    : package_decl newlines import_decl_list newlines func
+    ;
+
+newlines
+    : 
+    | newlines NEWLINE
     ;
 
 package_decl
-    : KW_PACKAGE IDENT
+    : KW_PACKAGE IDENT NEWLINE
     ;
 
 import_decl_list
-    : /* пусто */
+    : 
     | import_decl_list import_decl
     ;
 
 import_decl
-    : KW_IMPORT STRING
-    ;
-
-func_list
-    : func
-    | func_list func
+    : KW_IMPORT STRING NEWLINE
     ;
 
 func
@@ -55,43 +76,117 @@ block
     ;
 
 stmt_list
-    : /* пусто */
+    : 
     | stmt_list stmt
     ;
 
 stmt
-    : simple_stmt
-    | return_stmt
+    : simple_stmt NEWLINE
+    | return_stmt NEWLINE
+    | var_decl NEWLINE
+    | for_stmt
+    | if_stmt
+    | print_stmt NEWLINE
+    | NEWLINE                         
+    | error NEWLINE   { yyerrok; yyclearin; }
     ;
 
 simple_stmt
-    : IDENT DEFINE expr
-    | expr
+    : expr
+    | assign
+    | inc_dec
+    ;
+
+assign
+    : IDENT ASSIGN expr
+    | IDENT DEFINE expr
+    | IDENT PLUS_EQ expr
+    | IDENT MINUS_EQ expr
+    | IDENT MUL_EQ expr
+    | IDENT DIV_EQ expr
+    ;
+
+inc_dec
+    : IDENT INC
+    | INC IDENT
+    | IDENT DEC
+    | DEC IDENT
+    ;
+
+var_decl
+    : VAR IDENT IDENT ASSIGN expr
+    | VAR IDENT ASSIGN expr
+    | VAR IDENT STRING_TYPE
+    | VAR IDENT BOOL_TYPE
+    | VAR IDENT INT_TYPE
     ;
 
 return_stmt
     : KW_RETURN expr
+    | KW_RETURN
+    ;
+
+print_stmt
+    : FMT_PACKAGE DOT PRINT LPAR expr RPAR
+    | FMT_PACKAGE DOT PRINTLN LPAR expr RPAR
+    ;
+
+for_stmt
+    : FOR block
+    | FOR expr block
+    | FOR for_clause block
+    ;
+
+for_clause
+    : simple_stmt SEMICOLON expr SEMICOLON simple_stmt
+    | simple_stmt SEMICOLON expr SEMICOLON
+    | SEMICOLON expr SEMICOLON simple_stmt
+    | SEMICOLON expr SEMICOLON
+    ;
+
+if_stmt
+    : IF expr block else_part
+    ;
+
+else_part
+    : ELSE block
+    | 
     ;
 
 expr
-    : IDENT
-    | NUMBER
-    | STRING
+    : expr OR expr
+    | expr AND expr
+    | expr EQ expr
+    | expr NOTEQ expr
+    | expr LESS expr
+    | expr GREATER expr
+    | expr GREATER_OR_EQ expr
+    | expr LESS_OR_EQ expr
     | expr PLUS expr
+    | expr MINUS expr
+    | expr STAR expr
+    | expr SLASH expr
+    | MINUS expr %prec UMINUS
+    | atom
+    ;
+
+atom
+    : NUMBER
+    | IDENT
     | IDENT LPAR arg_list RPAR
-    | expr DOT IDENT LPAR arg_list RPAR
+    | LPAR expr RPAR
     ;
 
 arg_list
-    : /* пусто */
+    : 
     | expr
-    | arg_list COLON expr
+    | arg_list COMMA expr
     ;
 
 %%
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Синтаксическая ошибка (строка %d): %s\n", yylineno, s);
+    fprintf(stderr, "Syntax error (line %d): %s\n", yylineno, s);
     error_count++;
 }
 
@@ -120,28 +215,3 @@ int main(int argc, char **argv) {
     fclose(f);
     return 0;
 }
-
-/*
-
-Нужно создать язык программирования, компилятор и виртуальную машину
-
-1. ЯП поддерживает:
-  - Присваивание переменным
-  - for, while
-  - if
-  - print
-  - Целочисленные операции
-
-2. Язык переводится в asm
-  В asm есть:
-  - mov
-  - add, sub, mul, div
-  - cmp, jmp
-  - Регистры: r1 - r8
-  - out
-
-3. Волжен быть доступ к участку памяти, т.е. создаем виртуальную машину для исполнения кода.
-
-С пунктами 1 и 2 понятно как делать и реализовывать. Но я не понимаю, как подступиться к созданию виртуальной машины. Как она должна исполнять ассемблерный код.
-
-*/

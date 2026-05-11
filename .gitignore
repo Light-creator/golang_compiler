@@ -1,7 +1,12 @@
 main
 lex.yy.c
+lex_rec.yy.c
 parser.tab.c
 parser.tab.h
+go_parser.tab.h
+go_parser.tab.c
 out.asm
 vm
+compiler
+recognizer
 .vm
