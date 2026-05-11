@@ -348,7 +348,21 @@ void load_program(char* filename) {
         vm.prog[vm.prog_sz].b.operand_type = REG; 
         vm.prog[vm.prog_sz].b.val = b; 
         vm.prog_sz++;
-      }
+      } else if(sscanf(line, "neg r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_NEG; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } else if(sscanf(line, "not r%d", &a) == 1) {
+        vm.prog[vm.prog_sz].opcode = OP_NOT; 
+
+        // a operand
+        vm.prog[vm.prog_sz].a.operand_type = REG; 
+        vm.prog[vm.prog_sz].a.val = a; 
+        vm.prog_sz++;
+      } 
   }
 
   fill_all_jmps();
@@ -525,6 +539,20 @@ void fetch_and_execute() {
       #endif
       if(!vm.zero_flag && !vm.neg_flag) vm.regs[instr->a.val] = 1;
       else vm.regs[instr->a.val] = 0;
+      vm.ip++;
+      break;
+    case OP_NOT:
+      #if DEBUG
+      printf("not\n");
+      #endif
+      vm.regs[instr->a.val] = vm.regs[instr->a.val] ? 0 : 1;
+      vm.ip++;
+      break;
+    case OP_NEG:
+      #if DEBUG
+      printf("neg\n");
+      #endif
+      vm.regs[instr->a.val] = -vm.regs[instr->a.val];
       vm.ip++;
       break;
     case OP_SETGE:

@@ -41,6 +41,8 @@ typedef enum {
   OP_SETGE,
   OP_OR,
   OP_AND,
+  OP_NEG,
+  OP_NOT
 } opcode_t;
 
 typedef enum {

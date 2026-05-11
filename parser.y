@@ -112,7 +112,7 @@ void clear_vars() {
 %token <num> NUMBER
 %token STRING
 %token DEFINE PRINT PRINTLN FMT_PACKAGE ASSIGN
-%token EQ NOTEQ LESS GREATER GREATER_OR_EQ LESS_OR_EQ OR AND
+%token EQ NOTEQ LESS GREATER GREATER_OR_EQ LESS_OR_EQ OR AND NOT
 
 
 %type <var> define redefine // for_init
@@ -208,44 +208,38 @@ cmp_expr: expr EQ expr {
         write_cmp_stub();
         fprintf(out_file, "sete r7\n");
         fprintf(out_file, "push r7\n");
-        // fprintf(out_file, "jnz else_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
-        // fprintf(out_file, "jz exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
       | expr NOTEQ expr {
         write_cmp_stub();
         fprintf(out_file, "setne r7\n");
         fprintf(out_file, "push r7\n");
-        // fprintf(out_file, "jz else_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
-        // fprintf(out_file, "jnz exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
       | expr LESS expr {
         write_cmp_stub();
         fprintf(out_file, "setl r7\n");
         fprintf(out_file, "push r7\n");
-        // fprintf(out_file, "jge else_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
-        // fprintf(out_file, "jl exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
       | expr GREATER expr {
         write_cmp_stub();
         fprintf(out_file, "setg r7\n");
         fprintf(out_file, "push r7\n");
-        // fprintf(out_file, "jle else_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
-        // fprintf(out_file, "jg exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
       | expr GREATER_OR_EQ expr {
         write_cmp_stub();
         fprintf(out_file, "setge r7\n");
         fprintf(out_file, "push r7\n");
-        // fprintf(out_file, "jl else_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
-        // fprintf(out_file, "jge exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
       | expr LESS_OR_EQ expr {
         write_cmp_stub();
         fprintf(out_file, "setle r7\n");
         fprintf(out_file, "push r7\n");
-        // fprintf(out_file, "jg else_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
-        // fprintf(out_file, "jle exit_label_%d\n", state.loop_stack[state.loop_stack_idx]); 
       }
+      | NOT LPAR general_cmp RPAR {
+          fprintf(out_file, "pop r7\n");
+          fprintf(out_file, "not r7\n");
+          fprintf(out_file, "push r7\n");
+      }
+      | LPAR general_cmp RPAR {}
       ;
 
 
@@ -382,6 +376,11 @@ mul: mul STAR term {
 
 term: NUMBER { 
         fprintf(out_file, "mov r5, %d\n", $1); 
+        fprintf(out_file, "push r5\n");
+      }
+      | MINUS term {
+        fprintf(out_file, "pop r5\n");
+        fprintf(out_file, "neg r5\n");
         fprintf(out_file, "push r5\n");
       }
       | IDENT { 

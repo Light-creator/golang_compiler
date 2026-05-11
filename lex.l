@@ -48,6 +48,7 @@ IDENT   {LETTER}({LETTER}|{DIGIT})*
 "<="                return LESS_OR_EQ;
 "<"                 return LESS;
 ">"                 return GREATER;
+"!"                 return NOT;
 
 "&&"                return AND;
 "||"                return OR;
